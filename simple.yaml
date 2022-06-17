@@ -1,0 +1,78 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: simple
+  region: us-west-2
+  version: "1.21"
+iam:
+  withOIDC: true
+
+vpc:
+  # When we don't put in any subnet data, EKSCTL will create a new VPC and subnets automatically
+  clusterEndpoints:
+    publicAccess:  true
+    privateAccess: true
+
+nodeGroups:
+  # eksctl delete nodegroup --config-file=./simple.yaml  --include "primary-on-demand-uw2a-v1"
+  # Volume Encryption and Root Volume Size 100GB
+  - name: primary-on-demand-uw2a-v1
+
+    # Items for this node group only
+    availabilityZones: ["us-west-2a"]
+
+    # Items for the primary on-demand instances
+    <<: &primaryOnDemandInstanceConfiguration
+      labels:
+        role: primary
+      minSize: 1
+      desiredCapacity: 1
+      maxSize: 8
+      privateNetworking: true
+      # disablePodIMDS: true  # This makes it so pods can't "escalate" permissions by using the node IAM role automatically.  This AKA disabled the AWS http metadata endpoint which is how the AWS API gets permissions/access.  This requires some changes and testing before enabling, often easier if used from day-one than down the road
+      volumeSize: 100
+      volumeEncrypted: true
+      asgSuspendProcesses:
+        - AZRebalance  # This makes sure we don't kill instances for rebalancing, bad practice in Kubernetes
+      tags:
+        k8s.io/cluster-autoscaler/enabled: "true"
+        k8s.io/cluster-autoscaler/simple: "true"
+        kubernetes.io/cluster/simple: "owned"
+      iam:
+        withAddonPolicies: # DON'T USE THIS WITH DISABLE POD IMDS
+          ebs: true
+          cloudWatch: true
+        attachPolicyARNs:
+          # These first two are required and are defined by default, but you must put them here
+          - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+          - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+          - arn:aws:iam::aws:policy/AmazonEKSVPCResourceController     # Pod security groups support
+          - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly # Read from Container Registry
+
+
+  # eksctl delete nodegroup --config-file=./simple.yaml  --include "primary-on-demand-uw2b-v1"
+  - name: primary-on-demand-uw2b-v1
+    # Items for this node group only
+    availabilityZones: ["us-west-2b"]
+
+    # Import all defaults from above
+    <<: *primaryOnDemandInstanceConfiguration
+
+
+  # eksctl delete nodegroup --config-file=./simple.yaml  --include "primary-on-demand-uw2c-v1"
+  - name: primary-on-demand-uw2c-v1
+    # Items for this node group only
+    availabilityZones: ["us-west-2c"]
+
+    # Import all defaults from above
+    <<: *primaryOnDemandInstanceConfiguration
+
+
+
+
+
+# Valid entries are: "api", "audit", "authenticator", "controllerManager", "scheduler", "all", "*".
+cloudWatch:
+  clusterLogging:
+    enableTypes: ["api", "authenticator"]

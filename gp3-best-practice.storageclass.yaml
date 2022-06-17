@@ -1,0 +1,77 @@
+---
+# This GP3 requires you install the AWS EBS CSI Driver
+#
+# This enables the defaults of..
+#    * Encrypted at rest enabled (aws-managed)
+#    * ext4
+#    * Retain disks (do not delete by default) to prevent accidental data loss
+#    * Allow volume resizing so you can dynamically scale up disks, eg: https://github.com/DevOps-Nirvana/Kubernetes-Volume-Autoscaler
+#    * Set this one as "default"
+#
+# Before you can apply this file, remove the old default... `kubectl delete storageclass gp2`
+#
+# Note:
+#    If desired feel free to add more storage classes with some of the options toggled (eg: disable retain if you create a lot of dynamic disks)
+#    See some example alternative SC's commented out in the end of this file
+#
+# To use this:
+#      kubectl delete storageclass gp2  # delete old gp2 default storage class
+#      kubectl apply -f gp3-best-practice.storageclass.yaml
+#
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+  name: gp3-retain
+parameters:
+  fsType: ext4
+  type: gp3
+  encrypted: "true"
+provisioner: ebs.csi.aws.com
+reclaimPolicy: Retain
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
+# ---
+# apiVersion: storage.k8s.io/v1
+# kind: StorageClass
+# metadata:
+#   name: gp3-retain-fast
+# parameters:
+#   fsType: ext4
+#   type: gp3
+#   encrypted: "true"
+#   iops: "16000"
+#   throughput: "1000"
+# provisioner: ebs.csi.aws.com
+# reclaimPolicy: Retain
+# allowVolumeExpansion: true
+# volumeBindingMode: WaitForFirstConsumer
+# ---
+# apiVersion: storage.k8s.io/v1
+# kind: StorageClass
+# metadata:
+#   name: gp3-delete
+# parameters:
+#   fsType: ext4
+#   type: gp3
+#   encrypted: "true"
+# provisioner: ebs.csi.aws.com
+# reclaimPolicy: Delete
+# allowVolumeExpansion: true
+# volumeBindingMode: WaitForFirstConsumer
+# ---
+# apiVersion: storage.k8s.io/v1
+# kind: StorageClass
+# metadata:
+#   name: gp3-delete-fast
+# parameters:
+#   fsType: ext4
+#   type: gp3
+#   iops: "16000"
+#   throughput: "1000"
+#   encrypted: "true"
+# provisioner: ebs.csi.aws.com
+# reclaimPolicy: Delete
+# allowVolumeExpansion: true
+# volumeBindingMode: WaitForFirstConsumer

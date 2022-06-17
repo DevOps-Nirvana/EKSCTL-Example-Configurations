@@ -1,0 +1,96 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: ondemand-existing-vpc
+  region: us-west-2
+  version: "1.21"
+iam:
+  withOIDC: true
+
+vpc:
+  # TODO: Whitelist public access eg: to your VPN and/or jumpbox, etc
+  # publicAccessCIDRs: ["1.1.1.1/32", "2.2.2.0/24"]
+  subnets:
+    private:
+      us-west-2a: { id: subnet-0829684caf9013162 }
+      us-west-2b: { id: subnet-09cadd4111023d20d }
+      us-west-2c: { id: subnet-052f51620ecf6941e }
+  clusterEndpoints:
+    publicAccess:  true
+    privateAccess: true
+
+# This makes all secrets in Kubernetes use KMS
+secretsEncryption:
+  keyARN: arn:aws:kms:us-west-2:912649510816:key/b19d678c-c413-4bd1-80c3-9f1fa913632e
+
+nodeGroups:
+  # eksctl delete nodegroup --config-file=./ondemand-existing-vpc.yaml  --include "primary-on-demand-uw2a-v1"
+  # Volume Encryption and Root Volume Size 100GB
+  - name: primary-on-demand-uw2a-v1
+
+    # Items for this node group only
+    availabilityZones: ["us-west-2a"]
+
+    # Items for the primary on-demand instances
+    <<: &primaryOnDemandInstanceConfiguration
+      labels:
+        role: primary
+      minSize: 1
+      desiredCapacity: 1
+      maxSize: 8
+
+    # Global constants for all on-demand node groups
+    <<: &onDemandNodeGroupDefaults
+      privateNetworking: true
+      disablePodIMDS: true  # This makes it so pods can't "escalate" permissions by using the node IAM role automatically.  This AKA disabled the AWS http metadata endpoint which is how the AWS API gets permissions/access.  This requires some changes and testing before enabling, often easier if used from day-one than down the road
+      volumeSize: 100
+      volumeEncrypted: true
+      asgSuspendProcesses:
+        - AZRebalance  # This makes sure we don't kill instances for rebalancing, bad practice in Kubernetes
+      tags:
+        k8s.io/cluster-autoscaler/enabled: "true"
+        k8s.io/cluster-autoscaler/ondemand-existing-vpc: "true"
+        kubernetes.io/cluster/ondemand-existing-vpc: "owned"
+      iam:
+        # withAddonPolicies: # DON'T USE THIS WITH DISABLE POD IMDS
+        #   ebs: true
+        #   cloudWatch: true
+        attachPolicyARNs:
+          # These first two are required and are defined by default, but you must put them here
+          - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+          - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+          - arn:aws:iam::aws:policy/AmazonEKSVPCResourceController # Pod security groups support
+
+  # eksctl delete nodegroup --config-file=./ondemand-existing-vpc.yaml  --include "primary-on-demand-uw2b-v1"
+  - name: primary-on-demand-uw2b-v1
+    # Items for this node group only
+    availabilityZones: ["us-west-2b"]
+
+    # Import all on demand defaults from above
+    <<: *onDemandNodeGroupDefaults
+    <<: *primaryOnDemandInstanceConfiguration
+
+  # eksctl delete nodegroup --config-file=./ondemand-existing-vpc.yaml  --include "primary-on-demand-uw2c-v1"
+  - name: primary-on-demand-uw2c-v1
+    # Items for this node group only
+    availabilityZones: ["us-west-2c"]
+
+    # Import all on demand defaults from above
+    <<: *onDemandNodeGroupDefaults
+    <<: *primaryOnDemandInstanceConfiguration
+
+
+
+
+
+
+
+
+# Valid entries are: "api", "audit", "authenticator", "controllerManager", "scheduler", "all", "*".
+cloudWatch:
+  clusterLogging:
+    enableTypes: ["api", "authenticator"]
+
+# eksctl utils update-cluster-logging --enable-types=authenticator,api  --disable-types=audit,controllerManager,scheduler --cluster ondemand-existing-vpc --approve
+# eksctl utils update-cluster-logging --enable-types=all --cluster ondemand-existing-vpc --approve

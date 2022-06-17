@@ -1,0 +1,104 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: spot-existing-vpc
+  region: us-east-1
+  version: "1.21"
+iam:
+  withOIDC: true
+
+vpc:
+  # For whitelisting public access eg: to your VPN and/or jumpbox, etc
+  # publicAccessCIDRs: ["1.1.1.1/32", "2.2.2.0/24"]
+  # Note: If you specify existing subnets, it won't create an VPC or subnets for you, so you can do this in Terraform
+  subnets:
+    private:
+      us-east-1a: { id: subnet-07270fb3a830ac110 }
+      us-east-1b: { id: subnet-088e3a5b29384118e }
+  clusterEndpoints:
+    # Consider disabling this (eg: allow your users to VPN into your subnet)
+    publicAccess:  true
+    privateAccess: true
+
+nodeGroups:
+
+  # eksctl delete nodegroup --config-file=./spot-existing-vpc.yaml  --include "primary-spot-use1a-v5"
+  # Volume Encryption and Root Volume Size 100GB
+  - name: primary-spot-use1a-v5
+
+    # Items for this node group only
+    availabilityZones: ["us-east-1a"]
+
+    # Items for the primary spot instances, this is a YAML Anchor incase you're unfamiliar, we use it below to "copy" this
+    <<: &primarySpotInstanceConfiguration
+      labels:
+        role: primary
+        instance-type: spot
+      minSize: 1
+      desiredCapacity: 1
+      maxSize: 8
+      instancesDistribution:
+        # We need to use one of the "nitro" instances on AWS, and one of the instances that supports pod security groups.  See: https://docs.aws.amazon.com/eks/latest/userguide/security-groups-for-pods.html
+        # This maxPrice should be (imho) just above the most expensive hourly on-demand cost for the below instanceTypes, reduces spot death by a lot
+        # maxPrice: 0.17
+        # instanceTypes: ["r5a.large","r5ad.large","r5.large","r5n.large","r5d.large","r5dn.large"]
+        # This maxPrice should be (imho) just above the most expensive hourly on-demand cost for the below instanceTypes, reduces spot death by a lot
+        maxPrice: 0.34
+        instanceTypes: ["r5.xlarge","r5a.xlarge","r5ad.xlarge","r5b.xlarge","r5d.xlarge","r5dn.xlarge","r5n.xlarge"]
+        onDemandBaseCapacity: 0
+        onDemandPercentageAboveBaseCapacity: 0
+        spotAllocationStrategy: capacity-optimized
+
+    # Global constants for all node groups
+    <<: &spotNodeGroupDefaults
+      taints:
+        spotInstance: "true:PreferNoSchedule"
+      privateNetworking: true
+      # This makes it so pods can't "escalate" permissions by using the node IAM role automatically.
+      # This AKA disabled the AWS http metadata endpoint which is how the AWS API gets permissions/access.
+      # This requires some changes and testing before enabling, often easier if used from day-one than down the road.  Instead of services like
+      # cluster autoscaler "magically working" without a specific role, you will need to explicitly add a role to it.  This is better practice
+      # but more work to setup
+      disablePodIMDS: true
+      volumeSize: 100
+      volumeEncrypted: true
+      asgSuspendProcesses:
+        - AZRebalance  # This makes sure we don't kill instances for rebalancing, bad practice in Kubernetes
+      tags:
+        k8s.io/cluster-autoscaler/node-template/label/lifecycle: Ec2Spot
+        k8s.io/cluster-autoscaler/node-template/label/aws.amazon.com/spot: "true"
+        k8s.io/cluster-autoscaler/enabled: "true"
+        k8s.io/cluster-autoscaler/spot-existing-vpc: "true"
+      iam:
+        # withAddonPolicies: # CAN'T USE THIS WITH DISABLE POD IMDS
+        #   ebs: true        # CAN'T USE THIS WITH DISABLE POD IMDS
+        #   cloudWatch: true # CAN'T USE THIS WITH DISABLE POD IMDS
+        attachPolicyARNs:
+          # These first two are required and are defined by default, but you must put them here
+          - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+          - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+          - arn:aws:iam::aws:policy/AmazonEKSVPCResourceController     # Pod security groups support
+          - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly # Read from Container Registry
+          # - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore     # Optional, allows SSH in nodes via SSM, should not need this EVER, bad practice, etc.
+
+  # eksctl delete nodegroup --config-file=./spot-existing-vpc.yaml  --include "primary-spot-use1b-v5"
+  - name: primary-spot-use1b-v5
+    # Items for this node group only
+    availabilityZones: ["us-east-1b"]
+
+    # Import all defaults from above
+    <<: *spotNodeGroupDefaults
+    <<: *primarySpotInstanceConfiguration
+
+# secretsEncryption:
+#   # KMS key used for envelope encryption of Kubernetes secrets
+#   keyARN: arn:aws:kms:us-east-1:123123123123:key/123123123-2222-3333-4444-123123123
+
+# Valid entries are: "api", "audit", "authenticator", "controllerManager", "scheduler", "all", "*".
+cloudWatch:
+  clusterLogging:
+    enableTypes: ["api", "authenticator"]
+
+# eksctl utils update-cluster-logging --enable-types=authenticator,api  --disable-types=audit,controllerManager,scheduler --cluster spot-existing-vpc --approve
+# eksctl utils update-cluster-logging --enable-types=all --cluster spot-existing-vpc --approve
