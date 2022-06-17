@@ -13,12 +13,36 @@ eksctl is a simple CLI tool for creating and managing clusters on EKS - Amazon's
 - Install Kubectl CLI
 - Configure your AWS CLI to have access to your AWS Account(s)
 
+## Information on files and techniques
+
+Herein is various EKSCTL config files that are very DRY and easy to use.  They leverage YAML Aliases to copy/paste stanzas from
+one node group to another.  Note: Because Amazon's disks are AZ-specific, it is critical that you always create different node
+groups one for every AZ.  This is why every example in this repo does this.  And using the YAML Alias trick this is very easy
+to create two of the same and still keep the configuration very DRY and easy to edit/update.  The files included are...
+
+`gp3-best-practice.storageclass.yaml` - An alternate storageclass to the default one AWS provides, that is "best practice" in every way, not related to EKSCTL however, it is sort-of.  See below for usage and see in the file for more info in the comments.
+
+`ondemand-existing-vpc.yaml` - Creates an on-demand node group'd cluster with an existing VPC.  Typically you'd create this VPC via Terraform.
+
+`spot-existing-vpc.yaml` - Creates an spot node group'd cluster with an existing VPC.  Typically you'd create this VPC via Terraform.  It is
+important for me to explain to you how and why the spot is configured how it is.  First, because of a bug in cluster-autoscaler, you always
+want your minimum nodes of a spot group to be 1, otherwise there's a bug in cluster-autoscaler being unable to scale up from 0.  Secondarily,
+note the price I choose for the spot helps make the spots last a long time, often 3-4 months.  If you set the price you'll pay to just above the
+on-demand price it enables this.  Neat eh?
+
+`simple.yaml` - Creates an VPC and a new cluster from scratch.  This is the "easiest" way to on-board into using EKSCTL, requires you do
+no previous setup or configuration in your AWS account.  Just get up and go.
+
+To use these files, see below for instructions...
+
+
 ## EKSCTL Usage, Hints, Tips, etc.
 
 ### Initial Run
 To fully create a cluster, first configure a config file then...
 ```bash
-# First, run the creation of the cluster
+# First, run the creation of the cluster, Note: replace dev.yaml with whatever file(s) from above or create your own.
+# I recommend naming the file the same name as the cluster therein
 eksctl create cluster --config-file dev.yaml
 ```
 
