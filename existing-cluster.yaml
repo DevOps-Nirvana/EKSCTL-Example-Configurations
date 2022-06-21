@@ -1,0 +1,93 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: existing-cluster # NOTE: MUST REPLACE EVERY INSTANCE OF existing-cluster in this file with the name of your EKS cluster
+  region: us-east-2
+  version: "1.20"  # NOTE: MUST PUT THE VERSION YOU ARE CURRENTLY ON AT FIRST
+iam:
+  withOIDC: true # ENABLE THIS ONLY IF YOU ARE USING THIS
+
+vpc:
+  id: "vpc-02e1c02884b4b79d9"                     # This is the VPC you created your cluster in
+  securityGroup: "sg-12312312312312123"           # This is the primary security group that is assigned to all your nodes
+  sharedNodeSecurityGroup: "sg-45645645645645645" # This is a secondary security group assigned automatically to all nodes
+
+  # For whitelisting public access eg: to your VPN and/or jumpbox, etc
+  # publicAccessCIDRs: ["1.1.1.1/32", "2.2.2.0/24"]
+  subnets:
+    private:
+      us-east-2a: { id: subnet-11111111111111111 }  # Must of course set the AZ and private subnets your cluster is in, ideally it is PRIVATE
+      us-east-2b: { id: subnet-22222222222222222 }
+      us-east-2c: { id: subnet-33333333333333333 }
+  clusterEndpoints:
+    # Consider disabling this (eg: allow your users to VPN into your subnet)
+    publicAccess:  true
+    privateAccess: true
+
+nodeGroups:
+
+  # eksctl delete nodegroup --config-file=./existing-cluster.yaml  --include "primary-spot-use2a-v1"
+  # Volume Encryption and Root Volume Size 100GB
+  - name: primary-spot-use2a-v4
+
+    # Items for this node group only
+    availabilityZones: ["us-east-2a"]
+
+    # Items for the primary spot instances
+    <<: &primarySpotInstanceConfiguration
+      labels:
+        instance-type: spot
+      minSize: 1
+      desiredCapacity: 1
+      maxSize: 20
+      instancesDistribution:
+        # This maxPrice should be (imho) just above the most expensive hourly on-demand cost for the below instanceTypes
+        maxPrice: 0.17
+        instanceTypes: ["t3a.2xlarge","t3.2xlarge"]
+        onDemandBaseCapacity: 0
+        onDemandPercentageAboveBaseCapacity: 0
+        spotAllocationStrategy: capacity-optimized
+
+    # Global constants for all node groups
+    <<: &spotNodeGroupDefaults
+      taints:
+        spotInstance: "true:PreferNoSchedule"
+      privateNetworking: true
+      # disablePodIMDS: true  # This makes it so pods can't "escalate" permissions by using the node IAM role automatically.  This AKA disabled the AWS http metadata endpoint which is how the AWS API gets permissions/access.  This requires some changes and testing before enabling, often easier if used from day-one than down the road
+      volumeSize: 70
+      volumeEncrypted: true
+      asgSuspendProcesses:
+        - AZRebalance  # This makes sure we don't kill instances for rebalancing, bad practice in Kubernetes
+      tags:
+        k8s.io/cluster-autoscaler/node-template/label/lifecycle: Ec2Spot
+        k8s.io/cluster-autoscaler/node-template/label/aws.amazon.com/spot: "true"
+        k8s.io/cluster-autoscaler/enabled: "true"
+        k8s.io/cluster-autoscaler/existing-cluster: "true"
+        # kubernetes.io/cluster/eks-dev: "owned"
+      iam:
+        withAddonPolicies: # CAN'T USE THIS WITH DISABLE POD IMDS
+          cloudWatch: true # CAN'T USE THIS WITH DISABLE POD IMDS
+        attachPolicyARNs:
+          # These first two are required and are defined by default, but you must put them here
+          - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+          - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+          - arn:aws:iam::aws:policy/AmazonEKSVPCResourceController # Pod security groups support
+          - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly # Read from Container Registry (in this account only)
+          # - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore   # Optional, allows SSH in nodes via SSM, should not need this
+
+  - name: primary-spot-use2b-v4
+    # Items for this node group only
+    availabilityZones: ["us-east-2b"]
+
+    # Import all defaults from above
+    <<: *spotNodeGroupDefaults
+    <<: *primarySpotInstanceConfiguration
+
+  - name: primary-spot-use2c-v4
+    # Items for this node group only
+    availabilityZones: ["us-east-2c"]
+
+    # Import all defaults from above
+    <<: *spotNodeGroupDefaults
+    <<: *primarySpotInstanceConfiguration

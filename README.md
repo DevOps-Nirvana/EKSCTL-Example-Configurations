@@ -30,6 +30,12 @@ want your minimum nodes of a spot group to be 1, otherwise there's a bug in clus
 note the price I choose for the spot helps make the spots last a long time, often 3-4 months.  If you set the price you'll pay to just above the
 on-demand price it enables this.  Neat eh?
 
+`existing-cluster.yaml` - This shows how you can begin to manage any existing AWS EKS cluster with EKSCTL *immediately* without having to have
+set it up with EKSCTL.  The key here is you need to specify the existing VPC, Subnets and Security Groups, then you can begin to manage the nodes
+in that cluster.  Typically using a config like this you would roll out some new nodes which can/will be managed from EKSCTL from this point forward.
+After those nodes are fully live, you'd (manually of course, since you manually set it up elsewhere) drain all your old nodes one at a time and
+wait for all your pods and traffic to successfully move onto your now-eksctl-managed nodes.  When everything looks good, you can delete your old nodes and your old autoscalers (if enabled) and old node groups.  From this point on you can easily create new nodes and drain your old ones (created by eksctl).
+
 `simple.yaml` - Creates an VPC and a new cluster from scratch.  This is the "easiest" way to on-board into using EKSCTL, requires you do
 no previous setup or configuration in your AWS account.  Just get up and go.
 
