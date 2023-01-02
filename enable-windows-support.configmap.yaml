@@ -1,0 +1,8 @@
+# NOTE: Only `kubectl apply` this file if you plan to have Windows servers in your EKS cluster 
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: amazon-vpc-cni
+  namespace: kube-system
+data:
+  enable-windows-ipam: "true"

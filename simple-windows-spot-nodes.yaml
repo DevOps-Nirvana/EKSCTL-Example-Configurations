@@ -2,7 +2,7 @@ apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 
 metadata:
-  name: simple-windows-spot-nodes
+  name: simplewinspot
   region: us-east-1
   version: "1.23"
 iam:
@@ -15,8 +15,8 @@ vpc:
     privateAccess: true
 
 nodeGroups:
-  # eksctl create nodegroup --config-file=./higher-pod-density.yaml  --include "windows-2019-spot-ue1a-v1"
-  # eksctl delete nodegroup --config-file=./higher-pod-density.yaml  --include "windows-2019-spot-ue1a-v1"
+  # eksctl create nodegroup --config-file=./simple-windows-spot-nodes.yaml  --include "windows-2019-spot-ue1a-v1"
+  # eksctl delete nodegroup --config-file=./simple-windows-spot-nodes.yaml  --include "windows-2019-spot-ue1a-v1"
   # Windows Spot Nodes, Volume Encryption and Root Volume Size 100GB
   - name: windows-2019-spot-ue1a-v1
 
@@ -52,8 +52,8 @@ nodeGroups:
         k8s.io/cluster-autoscaler/node-template/label/lifecycle: Ec2Spot
         k8s.io/cluster-autoscaler/node-template/label/aws.amazon.com/spot: "true"
         k8s.io/cluster-autoscaler/enabled: "true"
-        k8s.io/cluster-autoscaler/simple-windows-spot-nodes: "true"
-        kubernetes.io/cluster/simple-windows-spot-nodes: "owned"
+        k8s.io/cluster-autoscaler/simplewinspot: "true"
+        kubernetes.io/cluster/simplewinspot: "owned"
       iam:
         attachPolicyARNs:
           # These first two are required and are defined by default, but you must put them here
@@ -61,8 +61,8 @@ nodeGroups:
           - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy                # Two foundationally required for EKS to function
           - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly  # Required to pull containers with zero additional effort/secrets
 
-  # eksctl create nodegroup --config-file=./higher-pod-density.yaml  --include "primary-on-demand-ue1b-v1"
-  # eksctl delete nodegroup --config-file=./higher-pod-density.yaml  --include "primary-on-demand-ue1b-v1"
+  # eksctl create nodegroup --config-file=./simple-windows-spot-nodes.yaml  --include "primary-on-demand-ue1b-v1"
+  # eksctl delete nodegroup --config-file=./simple-windows-spot-nodes.yaml  --include "primary-on-demand-ue1b-v1"
   - name: windows-2019-spot-ue1b-v1
     # Items for this node group only
     availabilityZones: ["us-east-1b"]

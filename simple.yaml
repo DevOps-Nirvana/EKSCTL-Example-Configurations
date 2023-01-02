@@ -4,7 +4,7 @@ kind: ClusterConfig
 metadata:
   name: simple
   region: us-west-2
-  version: "1.21"
+  version: "1.23"
 iam:
   withOIDC: true
 
@@ -15,6 +15,7 @@ vpc:
     privateAccess: true
 
 nodeGroups:
+  # eksctl create nodegroup --config-file=./simple.yaml  --include "primary-on-demand-uw2a-v1"
   # eksctl delete nodegroup --config-file=./simple.yaml  --include "primary-on-demand-uw2a-v1"
   # Volume Encryption and Root Volume Size 100GB
   - name: primary-on-demand-uw2a-v1
@@ -51,6 +52,7 @@ nodeGroups:
           - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly # Read from Container Registry
 
 
+  # eksctl create nodegroup --config-file=./simple.yaml  --include "primary-on-demand-uw2b-v1"
   # eksctl delete nodegroup --config-file=./simple.yaml  --include "primary-on-demand-uw2b-v1"
   - name: primary-on-demand-uw2b-v1
     # Items for this node group only
@@ -60,6 +62,7 @@ nodeGroups:
     <<: *primaryOnDemandInstanceConfiguration
 
 
+  # eksctl create nodegroup --config-file=./simple.yaml  --include "primary-on-demand-uw2c-v1"
   # eksctl delete nodegroup --config-file=./simple.yaml  --include "primary-on-demand-uw2c-v1"
   - name: primary-on-demand-uw2c-v1
     # Items for this node group only

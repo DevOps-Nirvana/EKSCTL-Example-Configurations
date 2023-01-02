@@ -3,7 +3,7 @@ apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 
 metadata:
-  name: higher-pod-density
+  name: simpledense
   region: us-east-1
   version: "1.23"
 iam:
@@ -16,8 +16,8 @@ vpc:
     privateAccess: true
 
 nodeGroups:
-  # eksctl create nodegroup --config-file=./higher-pod-density.yaml  --include "primary-on-demand-ue1a-v1"
-  # eksctl delete nodegroup --config-file=./higher-pod-density.yaml  --include "primary-on-demand-ue1a-v1"
+  # eksctl create nodegroup --config-file=./simple-higher-pod-density.yaml  --include "primary-on-demand-ue1a-v1"
+  # eksctl delete nodegroup --config-file=./simple-higher-pod-density.yaml  --include "primary-on-demand-ue1a-v1"
   # Volume Encryption and Root Volume Size 100GB, M5a.2xlarge with more pods-per-node enabled, see maxPodsPerNode below
   - name: primary-on-demand-ue1a-v1
 
@@ -47,22 +47,22 @@ nodeGroups:
         - AZRebalance  # This makes sure we don't kill instances for rebalancing, bad practice in Kubernetes
       tags:
         k8s.io/cluster-autoscaler/enabled: "true"
-        k8s.io/cluster-autoscaler/higher-pod-density: "true"
-        kubernetes.io/cluster/higher-pod-density: "owned"
+        k8s.io/cluster-autoscaler/simpledense: "true"
+        kubernetes.io/cluster/simpledense: "owned"
       iam:
         withAddonPolicies: # DON'T USE THIS WITH DISABLE POD IMDS
           ebs: true
           cloudWatch: true
         attachPolicyARNs:
           # These first two are required and are defined by default, but you must put them here
-          - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+          - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicyhigher
           - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
           - arn:aws:iam::aws:policy/AmazonEKSVPCResourceController     # Pod security groups support
           - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly # Read from Container Registry
 
 
-  # eksctl create nodegroup --config-file=./higher-pod-density.yaml  --include "primary-on-demand-ue1b-v1"
-  # eksctl delete nodegroup --config-file=./higher-pod-density.yaml  --include "primary-on-demand-ue1b-v1"
+  # eksctl create nodegroup --config-file=./simple-higher-pod-density.yaml  --include "primary-on-demand-ue1b-v1"
+  # eksctl delete nodegroup --config-file=./simple-higher-pod-density.yaml  --include "primary-on-demand-ue1b-v1"
   - name: primary-on-demand-ue1b-v1
     # Items for this node group only
     availabilityZones: ["us-east-1b"]
