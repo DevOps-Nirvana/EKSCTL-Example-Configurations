@@ -53,6 +53,8 @@ no previous setup or configuration in your AWS account. Just get up and go.
 
 `simple-windows-spot-nodes.yaml` - Creates an VPC and a new cluster from scratch (same as `simple.yaml` above) with Windows nodes only, keeping the configuration and setup very simple.
 
+`enable-windows-support.configmap.yaml` - This is a simple configmap that if you are using Windows nodes in EKS you're supposed to have.  See: [https://docs.aws.amazon.com/eks/latest/userguide/windows-support.html](https://docs.aws.amazon.com/eks/latest/userguide/windows-support.html) for more information.
+
 To use these files, see below for instructions...
 
 
