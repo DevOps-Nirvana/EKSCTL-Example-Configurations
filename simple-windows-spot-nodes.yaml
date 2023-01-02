@@ -1,0 +1,77 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: simple-windows-spot-nodes
+  region: us-east-1
+  version: "1.23"
+iam:
+  withOIDC: true
+
+vpc:
+  # When we don't put in any subnet data, EKSCTL will create a new VPC and subnets automatically
+  clusterEndpoints:
+    publicAccess:  true
+    privateAccess: true
+
+nodeGroups:
+  # eksctl create nodegroup --config-file=./higher-pod-density.yaml  --include "windows-2019-spot-ue1a-v1"
+  # eksctl delete nodegroup --config-file=./higher-pod-density.yaml  --include "windows-2019-spot-ue1a-v1"
+  # Windows Spot Nodes, Volume Encryption and Root Volume Size 100GB
+  - name: windows-2019-spot-ue1a-v1
+
+    # Items for this node group only
+    availabilityZones: ["us-east-1a"]
+
+    # Items for the primary on-demand instances
+    <<: &primarySpotInstanceConfiguration
+      # Windows container uses this AMI family, note 2022 exists also if needed
+      amiFamily: WindowsServer2019FullContainer
+      labels:
+        role: windows
+        os-release: WindowsServer2019Datacenter
+        instance-type: spot
+        spot: "true"
+      minSize: 1
+      desiredCapacity: 1
+      maxSize: 10
+      instancesDistribution:
+        # This maxPrice should be (imho) just above the most expensive hourly on-demand cost for the below instanceTypes.  Ref: http://ec2instances.info
+        # NOTE: Windows pricing is different than Linux!  So this Windows one must be adjusted accordingly!!!
+        instanceTypes: ["t3.xlarge", "t3a.xlarge", "m5a.xlarge", "m6a.xlarge"]  # 16GB - 4 CPU - 35 pods max
+        maxPrice: 0.34
+        onDemandBaseCapacity: 0
+        onDemandPercentageAboveBaseCapacity: 0
+        spotAllocationStrategy: price-capacity-optimized  # New feature in EKS and in EKSCTL as of release 0.124
+      privateNetworking: true
+      volumeSize: 100
+      volumeEncrypted: true
+      asgSuspendProcesses:
+        - AZRebalance  # This makes sure we don't kill instances for rebalancing, bad practice in Kubernetes, although because we use one az-per asg shouldn't matter.  But specify this just incase
+      tags:
+        k8s.io/cluster-autoscaler/node-template/label/lifecycle: Ec2Spot
+        k8s.io/cluster-autoscaler/node-template/label/aws.amazon.com/spot: "true"
+        k8s.io/cluster-autoscaler/enabled: "true"
+        k8s.io/cluster-autoscaler/simple-windows-spot-nodes: "true"
+        kubernetes.io/cluster/simple-windows-spot-nodes: "owned"
+      iam:
+        attachPolicyARNs:
+          # These first two are required and are defined by default, but you must put them here
+          - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy           # Two foundationally required for EKS to function
+          - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy                # Two foundationally required for EKS to function
+          - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly  # Required to pull containers with zero additional effort/secrets
+
+  # eksctl create nodegroup --config-file=./higher-pod-density.yaml  --include "primary-on-demand-ue1b-v1"
+  # eksctl delete nodegroup --config-file=./higher-pod-density.yaml  --include "primary-on-demand-ue1b-v1"
+  - name: windows-2019-spot-ue1b-v1
+    # Items for this node group only
+    availabilityZones: ["us-east-1b"]
+
+    # Import all defaults from above
+    <<: *primarySpotInstanceConfiguration
+
+
+# Valid entries are: "api", "audit", "authenticator", "controllerManager", "scheduler", "all", "*".
+cloudWatch:
+  clusterLogging:
+    enableTypes: ["api", "authenticator"]

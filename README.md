@@ -51,6 +51,8 @@ no previous setup or configuration in your AWS account. Just get up and go.
 
 `simple-higher-pod-density.yaml` - Creates an VPC and a new cluster from scratch (same as `simple.yaml` above), while enabling higher pod density with a new VPC CNI feature to minimize the cost of running your services if your microservices take very little CPU/RAM Resources
 
+`simple-windows-spot-nodes.yaml` - Creates an VPC and a new cluster from scratch (same as `simple.yaml` above) with Windows nodes only, keeping the configuration and setup very simple.
+
 To use these files, see below for instructions...
 
 
