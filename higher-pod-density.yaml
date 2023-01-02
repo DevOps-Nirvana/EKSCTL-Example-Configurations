@@ -1,0 +1,82 @@
+---
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: higher-pod-density
+  region: us-east-1
+  version: "1.23"
+iam:
+  withOIDC: true
+
+vpc:
+  # When we don't put in any subnet data, EKSCTL will create a new VPC and subnets automatically
+  clusterEndpoints:
+    publicAccess:  true
+    privateAccess: true
+
+nodeGroups:
+  # eksctl create nodegroup --config-file=./higher-pod-density.yaml  --include "primary-on-demand-ue1a-v1"
+  # eksctl delete nodegroup --config-file=./higher-pod-density.yaml  --include "primary-on-demand-ue1a-v1"
+  # Volume Encryption and Root Volume Size 100GB, M5a.2xlarge with more pods-per-node enabled, see maxPodsPerNode below
+  - name: primary-on-demand-ue1a-v1
+
+    # Items for this node group only
+    availabilityZones: ["us-east-1a"]
+
+    # Items for the primary on-demand instances
+    <<: &primaryOnDemandInstanceConfiguration
+      labels:
+        role: primary
+      instanceType: m5a.2xlarge
+      # This forces larger pods per node
+      # See: https://docs.aws.amazon.com/eks/latest/userguide/cni-increase-ip-addresses.html
+      # Download this: https://github.com/awslabs/amazon-eks-ami/blob/master/files/max-pods-calculator.sh
+      # Run this command to see how many pods to put here:
+      #    max-pods-calculator.sh --instance-type m5a.2xlarge --cni-version 1.12.0 --cni-prefix-delegation-enabled
+      # NOTE: You MUST have set ENABLE_PREFIX_DELEGATION for this to be able to have more pods than normal, see README.md for how
+      maxPodsPerNode: 110
+      minSize: 1
+      desiredCapacity: 1
+      maxSize: 8
+      privateNetworking: true
+      disablePodIMDS: true  # This makes it so pods can't "escalate" permissions by using the node IAM role automatically
+      volumeSize: 100
+      volumeEncrypted: true
+      asgSuspendProcesses:
+        - AZRebalance  # This makes sure we don't kill instances for rebalancing, bad practice in Kubernetes
+      tags:
+        k8s.io/cluster-autoscaler/enabled: "true"
+        k8s.io/cluster-autoscaler/higher-pod-density: "true"
+        kubernetes.io/cluster/higher-pod-density: "owned"
+      iam:
+        withAddonPolicies: # DON'T USE THIS WITH DISABLE POD IMDS
+          ebs: true
+          cloudWatch: true
+        attachPolicyARNs:
+          # These first two are required and are defined by default, but you must put them here
+          - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+          - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+          - arn:aws:iam::aws:policy/AmazonEKSVPCResourceController     # Pod security groups support
+          - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly # Read from Container Registry
+
+
+  # eksctl create nodegroup --config-file=./higher-pod-density.yaml  --include "primary-on-demand-ue1b-v1"
+  # eksctl delete nodegroup --config-file=./higher-pod-density.yaml  --include "primary-on-demand-ue1b-v1"
+  - name: primary-on-demand-ue1b-v1
+    # Items for this node group only
+    availabilityZones: ["us-east-1b"]
+
+    # Import all defaults from above
+    <<: *primaryOnDemandInstanceConfiguration
+
+
+# This makes all secrets in Kubernetes use an custom KMS Key
+secretsEncryption:
+  keyARN: arn:aws:kms:us-east-1:112233445566:key/11111111-2222-3333-4444-555555555555
+
+
+# Valid entries are: "api", "audit", "authenticator", "controllerManager", "scheduler", "all", "*".
+cloudWatch:
+  clusterLogging:
+    enableTypes: ["api", "authenticator"]
