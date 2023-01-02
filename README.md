@@ -49,7 +49,7 @@ wait for all your pods and traffic to successfully move onto your now-eksctl-man
 `simple.yaml` - Creates an VPC and a new cluster from scratch. This is the "easiest" way to on-board into using EKSCTL, requires you do
 no previous setup or configuration in your AWS account. Just get up and go.
 
-`higher-pod-density.yaml` - Creates an VPC and a new cluster from scratch (same as `simple.yaml` above), while enabling higher pod density with a new VPC CNI feature to minimize the cost of running your services if your microservices take very little CPU/RAM Resources
+`simple-higher-pod-density.yaml` - Creates an VPC and a new cluster from scratch (same as `simple.yaml` above), while enabling higher pod density with a new VPC CNI feature to minimize the cost of running your services if your microservices take very little CPU/RAM Resources
 
 To use these files, see below for instructions...
 
